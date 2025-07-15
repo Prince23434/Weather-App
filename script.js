@@ -6,6 +6,7 @@ const searchForm = document.querySelector("[data-searchForm]");
 const userInfo = document.querySelector(".user-info-container")
 
 const loadingContainer = document.querySelector(".loading-container")
+const apiErrorContainer = document.querySelector(".api-error-container");
 
 let API_KEY = "71ff28f1948ce941b9791a44ee3cb909";
 let currentTab = userTab;
@@ -20,6 +21,7 @@ searchTab.addEventListener("click", () => {
 })
 
 function switchTab(clickedTab){
+    apiErrorContainer.classList.remove("active");
     if (clickedTab!=currentTab) {
         currentTab.classList.remove("current-tab");
         currentTab = clickedTab;
@@ -52,9 +54,20 @@ function getFromSessionStorage(){
 //calling for when the page loads at user tab (no switching tabs)
 getFromSessionStorage();
 
+const apiErrorImage = document.querySelector("[data-notFoundImg]");
+const apiErrorMessage = document.querySelector("[data-apiErrorText]");
+const apiErrorBtn = document.querySelector("[data-apiErrorBtn]");
+
 function toggleLoading(show) {
     loadingContainer.classList[show ? "add" : "remove"]("active");
 }
+
+apiErrorBtn.addEventListener("click", () => {
+    const coords = JSON.parse(sessionStorage.getItem("user-coordinates"));
+    if (coords) {
+        fetchUserWeatherInfo(coords);
+    }
+});
 
 async function fetchUserWeatherInfo(coordinates){
     // let lat = coordinates.lat;
@@ -69,11 +82,18 @@ async function fetchUserWeatherInfo(coordinates){
     try {
         let content = await fetch(`https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&appid=${API_KEY}&units=metric`);
         let result = await content.json();
+        if (!content.ok) {
+            throw new Error(result.message || "API Error");
+        }
         toggleLoading(false);
         renderUserWeather(result);
     } 
     catch (error) {
-        console.log("Error")
+        toggleLoading(false);
+        apiErrorContainer.classList.add("active");
+        apiErrorImage.style.display = "none";
+        apiErrorMessage.textContent = `Error: ${error?.message}`;
+        apiErrorBtn.style.display = "block";
     }
 }
 
@@ -110,7 +130,7 @@ function getLocation(){
         // This asks the browser to get the user’s location (triggers a permission prompt).
         //If the user allows, the position object is passed to the showPosition function.
         //and if any error occured then it will be passed to the showerror function.
-        navigator.geolocation.getCurrentPosition(showPosition);
+        navigator.geolocation.getCurrentPosition(showPosition, showError);
     } else {
         alert("Geolocation is not supported by this browser.");
     }
@@ -124,6 +144,25 @@ function showPosition(position){
 
     sessionStorage.setItem("user-coordinates" , JSON.stringify(userCoordinates));
     fetchUserWeatherInfo(userCoordinates);
+}
+
+const messageText = document.querySelector("[data-messageText]");
+
+function showError(error){
+    switch (error.code) {
+        case error.PERMISSION_DENIED:
+            messageText.textContent = "You denied the request for Geolocation.";
+            break;
+        case error.POSITION_UNAVAILABLE:
+            messageText.textContent = "Location information is unavailable."
+            break;
+        case error.TIMEOUT:
+            messageText.textContent = "The request to get user location timed out."    
+            break;
+        case error.UNKNOWN_ERROR:
+            messageText.textContent = "An unknown error occured."
+            break;    
+    }
 }
 
 const searchCity = document.querySelector("[data-searchInput]");
@@ -145,14 +184,33 @@ searchForm.addEventListener("submit", (e)=> {
 
 async function fetchCityWeatherInfo() {
     userInfo.classList.remove("active");
+    apiErrorContainer.classList.remove("active");
     toggleLoading(true);
     try {
         let response = await fetch(`https://api.openweathermap.org/data/2.5/weather?q=${city}&appid=${API_KEY}&units=metric`);
         let data = await response.json();
+        if (response.status === 404) {
+            throw new Error("City not found (404)");
+        }// true if the HTTP response status code is in the range 200 to 299 (i.e. success) false for any other status (like 404, 500, etc.)
+        else if (!response.ok) {
+            throw new Error(response.statusText);
+        }
         toggleLoading(false);
         renderUserWeather(data);
     } 
     catch (error) {
-        console.log("error");
+        toggleLoading(false);
+        if (error.message.includes("404")) {
+            apiErrorContainer.classList.add("active");
+            apiErrorBtn.style.display = "none";
+            apiErrorImage.style.display = "block";
+            apiErrorMessage.textContent = `"${city}" City not Found`;
+        }
+        else{
+            apiErrorContainer.classList.add("active");
+            apiErrorMessage.textContent = `Other API error: ${error?.message}`;
+            apiErrorBtn.style.display = "none";
+            apiErrorImage.style.display = "none";
+        }
     }
 }

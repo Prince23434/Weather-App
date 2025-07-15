@@ -34,7 +34,7 @@
 
             <!--search form container-->
             <form class="form-container" data-searchForm>
-                <input placeholder="Search for city ..." data-searchInput>
+                <input type="search" placeholder="Search for city ..." data-searchInput>
                 <button class="btn" type="submit">
                     <img src="images/search.png" width="20px" height="20px" loading="lazy" >
                 </button>
@@ -88,6 +88,13 @@
                         <p class="parameter-value" data-clouds></p>
                     </div>
                 </div>
+            </div>
+
+            <!--handle api fetch error-->
+            <div class="sub-container api-error-container">
+                <img src="images/not-found.png" data-notFoundImg />
+                <p data-apiErrorText></p>
+                <button class="btn" data-apiErrorBtn>Retry</button>
             </div>
         </div>
     </div>
